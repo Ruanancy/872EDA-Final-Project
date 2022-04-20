@@ -633,7 +633,7 @@ Lastly, SynTao Green Finance, FTSE Russell, and Bloomberg ESG indices are all hi
 
 ## Question 2: How can these ownership structure and leadership factors (ownership concentration, blockholders' ownership, independent board ratio, chairman duality) affect ESG performance?
 
-Figure 4 provides an overview of the relationship between ESG performance of listed firms and four ownership structure and leadership factors (ownership concentration, blockholders' power, board independence, and chairman duality). Figure 2 also presents a correlation plot to show associations between important variables. However, simply measuring their relationships through correlation coefficients and fitted lines are limited. Instead, we should apply a multiple regression to further measure the effect of these four ownership structure and leadership factors on ESG performance.
+Figure 4 provides an overview of the relationship between ESG performance of listed firms and four ownership structure and leadership factors (ownership concentration, blockholders' power, board independence, and chairman duality). Figure 5 also presents a correlation plot to show associations between important variables. However, simply measuring their relationships through correlation coefficients and fitted lines are limited. Instead, we should apply a multiple regression to further measure the effect of these four ownership structure and leadership factors on ESG performance.
 
 ```{r plots, echo = FALSE, message = FALSE, warning= FALSE, fig.show='hold', fig.cap= "Four Ownership Structure and Leadership Factors and ESG Rating"}
 
@@ -681,9 +681,9 @@ ESG_{it} = Top1_{it} + (Top1_{it})^2 + Top25to1_{it} + IndepBoardRatio_{it} + Ch
 
 where `Top1` equals the shareholding ratio of the largest shareholder of a firm; `Top25to1` equals to the ratio of the sum of shares held by the $2^{nd}$, $3^{rd}$, $4^{th}$, and $5^{th}$ largest shareholders to that of the $1^{st}$ largest shareholder of a firm; `IndepBoardRatio` is the ratio of the number of independent board members to the number of total board members; `ChairisGM` equals 1 when chairman and general manager (GM) are the same person, and 0 otherwise; $\delta_t$, $\delta_j$, and $\delta_{s}$ represent year fixed effect, industry fixed effect, and company type fixed effect; $\varepsilon_{it}$ is the unobserved error term.
 
-Figure 5 shows the regression result.
+Figure 5 shows the regression result. Column (1) used all data during 2010-2020; Column (2) applied data during 2010-2014; and Column (3) applied data during 2015-2020. By using Bloomberg ESG index for regression, we find that 1) Ownership concentration is beneficial for improving ESG performance to some extent, but the marginal effect is decreasing; 2) The effects of outside blockholders and independent board members are also positive; 3) Listed firm should try to achieve that chairman and general manager (GM) are not the same person.
 
-\begin{table}[!htbp] \centering \small
+\begin{table}[!htbp] \centering \footnotesize
   \caption{Fixed-Effect Model} 
   \label{} 
 \begin{tabular}{@{\extracolsep{5pt}}lccc} 
@@ -697,7 +697,7 @@ Figure 5 shows the regression result.
  Top1 & 0.088$^{***}$ & 0.088$^{***}$ & 0.085$^{***}$ \\ 
   & (0.016) & (0.022) & (0.022) \\ 
   & & & \\ 
- Top1sq & $-$0.001$^{***}$ & $-$0.001$^{***}$ & $-$0.001$^{***}$ \\ 
+ (Top1)$^2$ & $-$0.001$^{***}$ & $-$0.001$^{***}$ & $-$0.001$^{***}$ \\ 
   & (0.0002) & (0.0002) & (0.0002) \\ 
   & & & \\ 
  Top25to1 & 0.624$^{***}$ & 0.282 & 0.803$^{***}$ \\ 
@@ -751,17 +751,24 @@ stargazer(lm1, lm2, lm3, header = F)
 
 ```
 
-
 \newpage
 
 # Summary and Conclusions
 
-The ESG performances of listed companies improved over past ten years, and state-owned firms and public firms tend to have higher ESG scores compared to private firms.
-The ESG scores from these five rating companies are positively correlated, but still have significant divergence. 
-By using Bloomberg ESG index for regression, we find that 1) ownership concentration is beneficial for improving ESG performance to some extent, but the marginal effect is decreasing; 2) the effects of outside blockholders and independent board members are also positive; 3) listed firm should try to achieve that chairman and general manager (GM) are not the same person.
+## Increasing Trend
+Overall, although the average ESG score of listed firms in China was only 22.524, relatively lower compared to U.S. firms, these listed firms have been working hard on improving ESG performance over the past ten years. Specifically, state-owned firms and public firms tend to have higher ESG scores compared to private firms. The average ESG score of foreign listed firms in China decreased significantly in 2015, which might be explained by the withdrawal of foreign capital and 2015 stock market selloff.
+
+## ESG Divergence and Selection
+
+The ESG scores from these five rating companies were positively correlated, but still had significant divergence. By comparison, we excluded four of them and chose Bloomberg ESG index for further analysis. 
+
+## Ownership Structure and Leadership Factors
+
+The main finding is that 1) ownership concentration is beneficial for improving ESG performance to some extent, but the marginal effect is decreasing; 2) the effects of outside blockholders and independent board members are also positive; 3) listed firm should try to achieve that chairman and general manager (GM) are not the same person.
+
+## Future Recommendations
 
 
-, which might be explained by the withdrawal of foreign capital and 2015 stock market selloff in China. Overall, although the average ESG score of listed firms in China was only 22.524, relatively lower compared to U.S. firms, these listed firms have been working hard on improving ESG performance over the past ten years.
 
 \newpage
 
