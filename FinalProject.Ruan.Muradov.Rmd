@@ -3,7 +3,7 @@ output:
   pdf_document:
     keep_tex: yes
     fig_caption: yes
-    number_sections: yes
+    number_sections: no
 geometry: margin=2.54cm
 title: "What Listed Firms with Great ESG Performance Look Like"
 subtitle: "https://github.com/Ruanancy/872EDA-Final-Project.git"
