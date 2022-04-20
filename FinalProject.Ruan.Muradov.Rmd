@@ -1,0 +1,783 @@
+---
+output: 
+  pdf_document:
+    keep_tex: yes
+    fig_caption: yes
+    number_sections: yes
+geometry: margin=2.54cm
+title: "What Listed Firms with Great ESG Performance Look Like"
+subtitle: "https://github.com/Ruanancy/872EDA-Final-Project.git"
+author: "Min Ruan, Suad Muradov"
+time: "Spring 2022"
+fontsize: 12pt
+mainfont: Times New Roman
+editor_options: 
+  chunk_output_type: console
+---
+
+\newpage
+\tableofcontents 
+\newpage
+\listoftables 
+\newpage
+\listoffigures 
+\newpage
+
+```{r setup, include=FALSE}
+# Set your working directory
+getwd()
+
+# Load your packages
+library(readxl)
+library(tidyverse)
+library(lubridate)
+library(dplyr)
+library(ggplot2)
+library(agricolae) 
+library(corrplot)
+library(PerformanceAnalytics)
+library(RColorBrewer)
+library(dummies)
+library(knitr)
+library(stargazer)
+library(psych)
+library(viridis)
+library(hrbrthemes)
+library(plotly)
+library(cowplot)
+
+# Set your ggplot theme
+mytheme <- theme_classic(base_size = 12) +
+  theme(axis.text = element_text(color = "black"), 
+        legend.position = "bottom")
+theme_set(mytheme)
+
+# Load your datasets
+ESG_bloomberg_raw <- read_excel("./ESG.xlsx", sheet = "bloomberg")
+colnames(ESG_bloomberg_raw)
+
+ESG_syntao_raw <- read_excel("./ESG.xlsx", sheet = "shangdaoronglv.yearly")
+colnames(ESG_syntao_raw)
+
+ESG_CASVI_raw <- read_excel("./ESG.xlsx", sheet = "Shetoument.yearly")
+colnames(ESG_CASVI_raw)
+
+ESG_FTSE_raw <- read_excel("./ESG.xlsx", sheet = "fushiluosu.yearly")
+colnames(ESG_FTSE_raw)
+
+ESG_Sino_raw <- read_excel("./ESG.xlsx", sheet = "huazheng.yearly")
+colnames(ESG_Sino_raw)
+
+ListedFirm_Wind_raw <- read_excel("./Firm_wind.xlsx")
+colnames(ListedFirm_Wind_raw)
+```
+
+
+# Rationale and Research Questions
+
+ESG is the acronym for Environmental, Social, and (Corporate) Governance. Figure 1 shows ESG criteria and ESG rating system. Back to 1970, Milton Friedman (1970) introduced the Shareholder Value Theory stating that business strategy should not just be about profit maximization, but care about long–term, sustainable growth. In 1990, the first ESG index, the Domini 400 Social Index, was created which we now know today as the MSCI KLD 400 Social Index. In 2006, the United Nations Principles for Responsible Investment (UN PRI) were launched and incorporated ESG concept into sustainability investment practice, focused on asset owners, investment managers, and service providers. They have been increasingly popular and have attracted over 3,000 signatories with more than 100 trillion dollars in assets under management by 2021. Therefore, ESG era is coming.
+
+```{r ESG, warning = FALSE, echo=FALSE, fig.align='center', out.width=c('60%', '35%'), fig.show='hold', fig.cap= "The Concept of ESG and ESG Rating System"}
+plots=c("./ESG.jpeg","./ESG Rating System.jpeg")
+knitr::include_graphics(plots)
+```
+
+Previous studies show that a firm's ESG profile and activities are strongly related to the firm's market, leadership and owner characteristics as well its risk, performance and value (Gillan et al., 2021). Corporate ownership structures, as one of the indicators that describe a company's identity, contribute to institutional oversight and may affect companies' motives in promoting sustainability (Eng and Mak, 2003; Al Amosh & Khatib, 2021). Even in front of the divergence of ESG ratings due to distinctive scope, measurement, and weights (Berg et al., 2019), what listed firms with great ESG performance look like is an interesting question. 
+
+This paper investigates the ESG performance of publicly listed firms in China during 2010-2020 and further explores the divergence of ESG ratings, based on data from five prominent ESG rating agencies in China. We finally apply a fixed-effect model to evaluate the association between ESG scores and firm leadership and ownership characteristics.
+
+We choose the following questions to guide our work:
+
+* Are ESG scores from different rating agents consistent, or at least positively correlated?
+* How can these ownership structure factors (ownership concentration, blockholders' ownership, independent board ratio, chairman duality) affect ESG performance?
+
+
+\newpage
+
+# Dataset Information
+
+## Data Retrieval:
+
+For this analysis, we used data collected from Wind database including basic characteristics, and financial statement information of 4912 listed firms during 2010-2021 in China. We also obtained ESG scores from five ESG rating companies from their own databases: Sino-Securities Index ESG, SynTao Green Finance ESG, China Alliance of Social Value Investment (CASVI) ESG, FTSE Russell ESG, and Bloomberg ESG. Table 2 describes the sample size, rating and year ranges of the five ESG indices. We downloaded these two excel files and added them to our project repository. All data and code for this project can be retrieved from the GitHub repository.
+
+```{r table1, echo=FALSE, message=FALSE, warnings=FALSE, results='asis'}
+require(pander)
+panderOptions('table.split.table', Inf)
+set.caption("The Description of ESG Ratings")
+tabl <- "
+ ESG Index           | Sample Size | Rating                              |  Period    
+ Sino-Securities     | 4065 firms  | C, CC, CCC, B, BB, BBB, A, AA, AAA  | since 2009      
+ SynTao Green Finance| 765 firms   |   C-, C, C+, B-, B, B+, A-, A, A+   | since 2015      
+ CASVI               | 296 firms   | C, CC, CCC, B, BB, BBB, A, AA, AAA  | since 2016     
+ FTSE Russell        | 728 firms   |    0.3 - 3.9                        | since 2018      
+ Bloomberg           | 1122 firms  |    6.6 - 64.1                       | since 2010     
+"
+df <- read.delim(textConnection(tabl),header=FALSE,sep="|",strip.white=TRUE,stringsAsFactors=FALSE)
+names(df) <- unname(as.list(df[1,])) # put headers on
+df <- df[-1,] # remove first row
+row.names(df)<-NULL
+pander(df, style = 'rmarkdown')
+```
+
+## Data Wrangling:
+
+We began our analysis by transforming ESG ratings into numerical values. Although two ESG ratings (FTSE Russell and Bloomberg) are numerical values, the other three (Sino-Securities Index, SynTao Green Finance, CASVI) are all rating levels. Thus, we regard these rating levels as nine scores 1-9 from the lowest to the highest, for example, C equals 1, CC equals 2, and so forth. Next, we applied many pipe functions with `pivot_longer` and created a date variable `Year` by using `mutate` to adjust the structure of each data frame for matching. Then, we merged one firm-characteristics dataset from Wind and five ESG rating datasets by `stockcode` (stock ID) and `Year` using `full_join`. Finally, we obtained an unique yearly firm-level panel dataset during 2010-2020.
+
+For further analysis, we created new variables `Top1`, `Top25.Top1`, `IndepBoardRatio`, `ChairisGM` and `StateOwned`. `Top1` equals the shareholding ratio of the largest shareholder of a firm, which can measure the ownership concentration; `Top25to1` equals to the ratio of the sum of shares held by the $2^{nd}$, $3^{rd}$, $4^{th}$, and $5^{th}$ largest shareholders to that of the $1^{st}$ largest shareholder of a firm, which can measure the blockholders' power; `IndepBoardRatio` is the ratio of the number of independent board members to the number of total board members, measuring board independence; `ChairisGM` is a binary variable and equals 1 when chairman and general manager (GM) are the same person, and 0 otherwise; `StateOwned` is also a binary variable and equals 1 when a firm is centrally or locally state-owned, and 0 otherwise. In addition, we created several datasets for visualization and statistics.
+
+```{r ESG data wranging, include=FALSE, message = FALSE, warning= FALSE}
+ESG_bloomberg_ESG <- ESG_bloomberg_raw %>%
+  select(stockcode, ESG2020:ESG2010) %>%
+  pivot_longer(ESG2020:ESG2010, names_to = "Year", values_to = "ESG_Score")
+ESG_bloomberg_ESG$Year <- substring(ESG_bloomberg_ESG$Year,4,8)
+ESG_bloomberg_ESG$Year <- as.numeric(ESG_bloomberg_ESG$Year)
+ESG_bloomberg_ESG$Index <- "ESG_bloomberg"
+
+ESG_bloomberg_E <- ESG_bloomberg_raw %>%
+  select(stockcode, E2020:E2010) %>%
+  pivot_longer(E2020:E2010, names_to = "Year", values_to = "ESG_Score")
+ESG_bloomberg_E$Year <- substring(ESG_bloomberg_E$Year,2,6)
+ESG_bloomberg_E$Year <- as.numeric(ESG_bloomberg_E$Year)
+ESG_bloomberg_E$Index <- "E"
+  
+ESG_bloomberg_S <- ESG_bloomberg_raw %>%
+  select(stockcode, S2020:S2010) %>%
+  pivot_longer(S2020:S2010, names_to = "Year", values_to = "ESG_Score")
+ESG_bloomberg_S$Year <- substring(ESG_bloomberg_S$Year,2,6)
+ESG_bloomberg_S$Year <- as.numeric(ESG_bloomberg_S$Year)
+ESG_bloomberg_S$Index <- "S"
+
+ESG_bloomberg_G <- ESG_bloomberg_raw %>%
+  select(stockcode, G2020:G2010) %>%
+  pivot_longer(G2020:G2010, names_to = "Year", values_to = "ESG_Score")
+ESG_bloomberg_G$Year <- substring(ESG_bloomberg_G$Year,2,6)
+ESG_bloomberg_G$Year <- as.numeric(ESG_bloomberg_G$Year)
+ESG_bloomberg_G$Index <- "G"
+
+ESG_Bloomberg_processed <- rbind(ESG_bloomberg_ESG, ESG_bloomberg_E, ESG_bloomberg_S, ESG_bloomberg_G)
+ESG_Bloomberg_processed <- pivot_wider(ESG_Bloomberg_processed, names_from = Index, values_from = ESG_Score)
+
+rm(ESG_bloomberg_ESG)
+rm(ESG_bloomberg_E)
+rm(ESG_bloomberg_S)
+rm(ESG_bloomberg_G)
+
+ESG_CASVI_processed <- ESG_CASVI_raw %>%
+  select(stockcode, `2016`:`2021`) %>%
+  pivot_longer(`2016`:`2021`, names_to = "Year", values_to = "ESG_CASVI")
+ESG_CASVI_processed$Year <- as.numeric(ESG_CASVI_processed$Year)
+unique(ESG_CASVI_processed$ESG_CASVI)
+#quantify the ESG rating
+ESG_CASVI_processed$ESGscore_CASVI[ESG_CASVI_processed$ESG_CASVI == "D"] <- 0
+ESG_CASVI_processed$ESGscore_CASVI[ESG_CASVI_processed$ESG_CASVI == "C"] <- 1
+ESG_CASVI_processed$ESGscore_CASVI[ESG_CASVI_processed$ESG_CASVI == "CC"] <- 2
+ESG_CASVI_processed$ESGscore_CASVI[ESG_CASVI_processed$ESG_CASVI == "CCC"] <- 3
+ESG_CASVI_processed$ESGscore_CASVI[ESG_CASVI_processed$ESG_CASVI == "B-"] <- 3.75
+ESG_CASVI_processed$ESGscore_CASVI[ESG_CASVI_processed$ESG_CASVI == "B"] <- 4
+ESG_CASVI_processed$ESGscore_CASVI[ESG_CASVI_processed$ESG_CASVI == "B+"] <- 4.25
+ESG_CASVI_processed$ESGscore_CASVI[ESG_CASVI_processed$ESG_CASVI == "BB-"] <- 4.75
+ESG_CASVI_processed$ESGscore_CASVI[ESG_CASVI_processed$ESG_CASVI == "BB"] <- 5
+ESG_CASVI_processed$ESGscore_CASVI[ESG_CASVI_processed$ESG_CASVI == "BB+"] <- 5.25
+ESG_CASVI_processed$ESGscore_CASVI[ESG_CASVI_processed$ESG_CASVI == "BBB-"] <- 5.75
+ESG_CASVI_processed$ESGscore_CASVI[ESG_CASVI_processed$ESG_CASVI == "BBB"] <- 6
+ESG_CASVI_processed$ESGscore_CASVI[ESG_CASVI_processed$ESG_CASVI == "BBB+"] <- 6.25
+ESG_CASVI_processed$ESGscore_CASVI[ESG_CASVI_processed$ESG_CASVI == "A-"] <- 6.75
+ESG_CASVI_processed$ESGscore_CASVI[ESG_CASVI_processed$ESG_CASVI == "A"] <- 7
+ESG_CASVI_processed$ESGscore_CASVI[ESG_CASVI_processed$ESG_CASVI == "A+"] <- 7.25
+ESG_CASVI_processed$ESGscore_CASVI[ESG_CASVI_processed$ESG_CASVI == "AA-"] <- 7.75
+ESG_CASVI_processed$ESGscore_CASVI[ESG_CASVI_processed$ESG_CASVI == "AA"] <- 8
+ESG_CASVI_processed$ESGscore_CASVI[ESG_CASVI_processed$ESG_CASVI == "AA+"] <- 8.25
+ESG_CASVI_processed$ESGscore_CASVI[ESG_CASVI_processed$ESG_CASVI == "AAA"] <- 9
+
+ESG_FTSE_processed <- ESG_FTSE_raw %>%
+  select(stockcode, `2018`:`2021`) %>%
+  pivot_longer(`2018`:`2021`, names_to = "Year", values_to = "ESG_FTSE")
+ESG_FTSE_processed$Year <- as.numeric(ESG_FTSE_processed$Year)
+
+ESG_Sino_processed <- ESG_Sino_raw %>%
+  select(stockcode, `2010`:`2021`) %>%
+  pivot_longer(`2010`:`2021`, names_to = "Year", values_to = "ESG_Sino")
+ESG_Sino_processed$Year <- as.numeric(ESG_Sino_processed$Year)
+unique(ESG_Sino_processed$ESG_Sino)
+ESG_Sino_processed$ESGscore_Sino[ESG_Sino_processed$ESG_Sino == "C"] <- 1
+ESG_Sino_processed$ESGscore_Sino[ESG_Sino_processed$ESG_Sino == "CC"] <- 2
+ESG_Sino_processed$ESGscore_Sino[ESG_Sino_processed$ESG_Sino == "CCC"] <- 3
+ESG_Sino_processed$ESGscore_Sino[ESG_Sino_processed$ESG_Sino == "B"] <- 4
+ESG_Sino_processed$ESGscore_Sino[ESG_Sino_processed$ESG_Sino == "BB"] <- 5
+ESG_Sino_processed$ESGscore_Sino[ESG_Sino_processed$ESG_Sino == "BBB"] <- 6
+ESG_Sino_processed$ESGscore_Sino[ESG_Sino_processed$ESG_Sino == "A"] <- 7
+ESG_Sino_processed$ESGscore_Sino[ESG_Sino_processed$ESG_Sino == "AA"] <- 8
+ESG_Sino_processed$ESGscore_Sino[ESG_Sino_processed$ESG_Sino == "AAA"] <- 9
+
+ESG_Syntao_processed <- ESG_syntao_raw %>%
+  select(stockcode, `2015`:`2021`) %>%
+  pivot_longer(`2015`:`2021`, names_to = "Year", values_to = "ESG_Syntao")
+ESG_Syntao_processed$Year <- as.numeric(ESG_Syntao_processed$Year)
+unique(ESG_Syntao_processed$ESG_Syntao)
+ESG_Syntao_processed$ESGscore_Syntao[ESG_Syntao_processed$ESG_Syntao == "C-"] <- 1
+ESG_Syntao_processed$ESGscore_Syntao[ESG_Syntao_processed$ESG_Syntao == "C"] <- 2
+ESG_Syntao_processed$ESGscore_Syntao[ESG_Syntao_processed$ESG_Syntao == "C+"] <- 3
+ESG_Syntao_processed$ESGscore_Syntao[ESG_Syntao_processed$ESG_Syntao == "B-"] <- 4
+ESG_Syntao_processed$ESGscore_Syntao[ESG_Syntao_processed$ESG_Syntao == "B"] <- 5
+ESG_Syntao_processed$ESGscore_Syntao[ESG_Syntao_processed$ESG_Syntao == "B+"] <- 6
+ESG_Syntao_processed$ESGscore_Syntao[ESG_Syntao_processed$ESG_Syntao == "A-"] <- 7
+ESG_Syntao_processed$ESGscore_Syntao[ESG_Syntao_processed$ESG_Syntao == "A"] <- 8
+ESG_Syntao_processed$ESGscore_Syntao[ESG_Syntao_processed$ESG_Syntao == "A+"] <- 9
+
+ESG_Bloomberg_processed$ESGscore_Bloomberg <- ESG_Bloomberg_processed$ESG_bloomberg
+
+ESG_all <- full_join(ESG_Bloomberg_processed,ESG_Syntao_processed, by = c("stockcode","Year"), all=T)
+ESG_all <- full_join(ESG_all,ESG_Sino_processed, by = c("stockcode","Year"), all=T)
+ESG_all <- full_join(ESG_all,ESG_CASVI_processed, by = c("stockcode","Year"), all=T)
+ESG_all <- full_join(ESG_all,ESG_FTSE_processed, by = c("stockcode","Year"), all=T)
+
+```
+
+
+```{r Wind data, include = FALSE, message = FALSE, warning= FALSE}
+#Basic characteristics of publicly listed firms
+FirmBasic <- ListedFirm_Wind_raw %>%
+  select(stockcode, IPO_date, CompanyType, Province, City, IndustryName, IndustryCode)
+FirmBasic$stockcode <- substring(FirmBasic$stockcode,1,6)
+
+#Outstanding shares of Top1-Top10 shareholders/Total outstanding shares
+Top1_Wind <- ListedFirm_Wind_raw %>%
+  select(stockcode, top1.2021:top1.2010) %>%
+  pivot_longer(top1.2021:top1.2010, names_to = "Year", values_to = "Top1")
+Top1_Wind$Year <- substring(Top1_Wind$Year,6,10)
+Top1_Wind$Year <- as.numeric(Top1_Wind$Year)
+
+Top2_Wind <- ListedFirm_Wind_raw %>%
+  select(stockcode, top2.2021:top2.2010) %>%
+  pivot_longer(top2.2021:top2.2010, names_to = "Year", values_to = "Top2")
+Top2_Wind$Year <- substring(Top2_Wind$Year,6,10)
+Top2_Wind$Year <- as.numeric(Top2_Wind$Year)
+
+Top3_Wind <- ListedFirm_Wind_raw %>%
+  select(stockcode, top3.2021:top3.2010) %>%
+  pivot_longer(top3.2021:top3.2010, names_to = "Year", values_to = "Top3")
+Top3_Wind$Year <- substring(Top3_Wind$Year,6,10)
+Top3_Wind$Year <- as.numeric(Top3_Wind$Year)
+
+Top4_Wind <- ListedFirm_Wind_raw %>%
+  select(stockcode, top4.2021:top4.2010) %>%
+  pivot_longer(top4.2021:top4.2010, names_to = "Year", values_to = "Top4")
+Top4_Wind$Year <- substring(Top4_Wind$Year,6,10)
+Top4_Wind$Year <- as.numeric(Top4_Wind$Year)
+
+Top5_Wind <- ListedFirm_Wind_raw %>%
+  select(stockcode, top5.2021:top5.2010) %>%
+  pivot_longer(top5.2021:top5.2010, names_to = "Year", values_to = "Top5")
+Top5_Wind$Year <- substring(Top5_Wind$Year,6,10)
+Top5_Wind$Year <- as.numeric(Top5_Wind$Year)
+
+Top6_Wind <- ListedFirm_Wind_raw %>%
+  select(stockcode, top6.2021:top6.2010) %>%
+  pivot_longer(top6.2021:top6.2010, names_to = "Year", values_to = "Top6")
+Top6_Wind$Year <- substring(Top6_Wind$Year,6,10)
+Top6_Wind$Year <- as.numeric(Top6_Wind$Year)
+
+Top7_Wind <- ListedFirm_Wind_raw %>%
+  select(stockcode, top7.2021:top7.2010) %>%
+  pivot_longer(top7.2021:top7.2010, names_to = "Year", values_to = "Top7")
+Top7_Wind$Year <- substring(Top7_Wind$Year,6,10)
+Top7_Wind$Year <- as.numeric(Top7_Wind$Year)
+
+Top8_Wind <- ListedFirm_Wind_raw %>%
+  select(stockcode, top8.2021:top8.2010) %>%
+  pivot_longer(top8.2021:top8.2010, names_to = "Year", values_to = "Top8")
+Top8_Wind$Year <- substring(Top8_Wind$Year,6,10)
+Top8_Wind$Year <- as.numeric(Top8_Wind$Year)
+
+Top9_Wind <- ListedFirm_Wind_raw %>%
+  select(stockcode, top9.2021:top9.2010) %>%
+  pivot_longer(top9.2021:top9.2010, names_to = "Year", values_to = "Top9")
+Top9_Wind$Year <- substring(Top9_Wind$Year,6,10)
+Top9_Wind$Year <- as.numeric(Top9_Wind$Year)
+
+Top10_Wind <- ListedFirm_Wind_raw %>%
+  select(stockcode, top10.2021:top10.2010) %>%
+  pivot_longer(top10.2021:top10.2010, names_to = "Year", values_to = "Top10")
+Top10_Wind$Year <- substring(Top10_Wind$Year,7,11)
+Top10_Wind$Year <- as.numeric(Top10_Wind$Year)
+
+#Outstanding share/Total share
+OutstandingShareRatio_Wind <- ListedFirm_Wind_raw %>%
+  select(stockcode, OutstandingShareRatio.2021:OutstandingShareRatio.2010) %>%
+  pivot_longer(OutstandingShareRatio.2021:OutstandingShareRatio.2010, names_to = "Year", values_to = "OutstandingShareRatio")
+OutstandingShareRatio_Wind$Year <- substring(OutstandingShareRatio_Wind$Year,23,27)
+OutstandingShareRatio_Wind$Year <- as.numeric(OutstandingShareRatio_Wind$Year)
+
+Top10_processed <- full_join(Top1_Wind,Top2_Wind, by = c("stockcode","Year"), all=T)
+Top10_processed <- full_join(Top10_processed,Top3_Wind, by = c("stockcode","Year"), all=T)
+Top10_processed <- full_join(Top10_processed,Top4_Wind, by = c("stockcode","Year"), all=T)
+Top10_processed <- full_join(Top10_processed,Top5_Wind, by = c("stockcode","Year"), all=T)
+Top10_processed <- full_join(Top10_processed,Top6_Wind, by = c("stockcode","Year"), all=T)
+Top10_processed <- full_join(Top10_processed,Top7_Wind, by = c("stockcode","Year"), all=T)
+Top10_processed <- full_join(Top10_processed,Top8_Wind, by = c("stockcode","Year"), all=T)
+Top10_processed <- full_join(Top10_processed,Top9_Wind, by = c("stockcode","Year"), all=T)
+Top10_processed <- full_join(Top10_processed,Top10_Wind, by = c("stockcode","Year"), all=T)
+Top10_processed <- full_join(Top10_processed,OutstandingShareRatio_Wind, by = c("stockcode","Year"), all=T)
+Top10_processed$stockcode <- substring(Top10_processed$stockcode,1,6)
+
+rm(Top1_Wind)
+rm(Top2_Wind)
+rm(Top3_Wind)
+rm(Top4_Wind)
+rm(Top5_Wind)
+rm(Top6_Wind)
+rm(Top7_Wind)
+rm(Top8_Wind)
+rm(Top9_Wind)
+rm(Top10_Wind)
+rm(OutstandingShareRatio_Wind)
+
+# chairman
+Chair_Wind <- ListedFirm_Wind_raw %>%
+  select(stockcode, Chairman2021:Chairman2010) %>%
+  pivot_longer(Chairman2021:Chairman2010, names_to = "Year", values_to = "Chairman")
+Chair_Wind$Year <- substring(Chair_Wind$Year,9,13)
+Chair_Wind$Year <- as.numeric(Chair_Wind$Year)
+
+# general manager
+GM_Wind <- ListedFirm_Wind_raw %>%
+  select(stockcode, GM2021:GM2010) %>%
+  pivot_longer(GM2021:GM2010, names_to = "Year", values_to = "GM")
+GM_Wind$Year <- substring(GM_Wind$Year,3,7)
+GM_Wind$Year <- as.numeric(GM_Wind$Year)
+
+# the number of people in the board
+Board_Wind <- ListedFirm_Wind_raw %>%
+  select(stockcode, Board2021:Board2010) %>%
+  pivot_longer(Board2021:Board2010, names_to = "Year", values_to = "BoardNumber")
+Board_Wind$Year <- substring(Board_Wind$Year,6,10)
+Board_Wind$Year <- as.numeric(Board_Wind$Year)
+
+# the number of people in the independent board
+IndepBoard_Wind <- ListedFirm_Wind_raw %>%
+  select(stockcode, IndepBoard2021:IndepBoard2010) %>%
+  pivot_longer(IndepBoard2021:IndepBoard2010, names_to = "Year", values_to = "IndepBoardNumber")
+IndepBoard_Wind$Year <- substring(IndepBoard_Wind$Year,11,15)
+IndepBoard_Wind$Year <- as.numeric(IndepBoard_Wind$Year)
+
+# the total salary of management 
+ManageSalary_Wind <- ListedFirm_Wind_raw %>%
+  select(stockcode, ManageSalary2020:ManageSalary2010) %>%
+  pivot_longer(ManageSalary2020:ManageSalary2010, names_to = "Year", values_to = "ManageSalary")
+ManageSalary_Wind$Year <- substring(ManageSalary_Wind$Year,13,17)
+ManageSalary_Wind$Year <- as.numeric(ManageSalary_Wind$Year)
+
+Board_processed <- full_join(Chair_Wind,GM_Wind, by = c("stockcode","Year"), all=T)
+Board_processed <- full_join(Board_processed,Board_Wind, by = c("stockcode","Year"), all=T)
+Board_processed <- full_join(Board_processed,IndepBoard_Wind, by = c("stockcode","Year"), all=T)
+Board_processed <- full_join(Board_processed,ManageSalary_Wind, by = c("stockcode","Year"), all=T)
+Board_processed$stockcode <- substring(Board_processed$stockcode,1,6)
+
+rm(Chair_Wind)
+rm(GM_Wind)
+rm(Board_Wind)
+rm(IndepBoard_Wind)
+rm(ManageSalary_Wind)
+
+#Financial indices
+ROA1_Wind <- ListedFirm_Wind_raw %>%
+  select(stockcode, ROA1.2010:ROA1.2021) %>%
+  pivot_longer(ROA1.2010:ROA1.2021, names_to = "Year", values_to = "ROA1")
+ROA1_Wind$Year <- substring(ROA1_Wind$Year,6,10)
+ROA1_Wind$Year <- as.numeric(ROA1_Wind$Year)
+
+ROA2_Wind <- ListedFirm_Wind_raw %>%
+  select(stockcode, ROA2.2010:ROA2.2021) %>%
+  pivot_longer(ROA2.2010:ROA2.2021, names_to = "Year", values_to = "ROA2")
+ROA2_Wind$Year <- substring(ROA2_Wind$Year,6,10)
+ROA2_Wind$Year <- as.numeric(ROA2_Wind$Year)
+
+ROE1_Wind <- ListedFirm_Wind_raw %>%
+  select(stockcode, ROE1.2010:ROE1.2021) %>%
+  pivot_longer(ROE1.2010:ROE1.2021, names_to = "Year", values_to = "ROE1")
+ROE1_Wind$Year <- substring(ROE1_Wind$Year,6,10)
+ROE1_Wind$Year <- as.numeric(ROE1_Wind$Year)
+
+ROE2_Wind <- ListedFirm_Wind_raw %>%
+  select(stockcode, ROE2.2010:ROE2.2021) %>%
+  pivot_longer(ROE2.2010:ROE2.2021, names_to = "Year", values_to = "ROE2")
+ROE2_Wind$Year <- substring(ROE2_Wind$Year,6,10)
+ROE2_Wind$Year <- as.numeric(ROE2_Wind$Year)
+
+ROIC_Wind <- ListedFirm_Wind_raw %>%
+  select(stockcode, ROIC2010:ROIC2021) %>%
+  pivot_longer(ROIC2010:ROIC2021, names_to = "Year", values_to = "ROIC")
+ROIC_Wind$Year <- substring(ROIC_Wind$Year,5,9)
+ROIC_Wind$Year <- as.numeric(ROIC_Wind$Year)
+
+ROP_Wind <- ListedFirm_Wind_raw %>%
+  select(stockcode, ROP2010:ROP2021) %>%
+  pivot_longer(ROP2010:ROP2021, names_to = "Year", values_to = "ROP")
+ROP_Wind$Year <- substring(ROP_Wind$Year,4,8)
+ROP_Wind$Year <- as.numeric(ROP_Wind$Year)
+
+FinancialPerf_processed <- full_join(ROA1_Wind,ROA2_Wind, by = c("stockcode","Year"), all=T)
+FinancialPerf_processed <- full_join(FinancialPerf_processed,ROE1_Wind, by = c("stockcode","Year"), all=T)
+FinancialPerf_processed <- full_join(FinancialPerf_processed,ROE2_Wind, by = c("stockcode","Year"), all=T)
+FinancialPerf_processed <- full_join(FinancialPerf_processed,ROIC_Wind, by = c("stockcode","Year"), all=T)
+FinancialPerf_processed <- full_join(FinancialPerf_processed,ROP_Wind, by = c("stockcode","Year"), all=T)
+FinancialPerf_processed$stockcode <- substring(FinancialPerf_processed$stockcode,1,6)
+
+rm(ROA1_Wind)
+rm(ROA2_Wind)
+rm(ROE1_Wind)
+rm(ROE2_Wind)
+rm(ROIC_Wind)
+rm(ROP_Wind)
+
+#structure characteristics
+LEV_Wind <- ListedFirm_Wind_raw %>%
+  select(stockcode, LEV2010:LEV2021) %>%
+  pivot_longer(LEV2010:LEV2021, names_to = "Year", values_to = "LEV")
+LEV_Wind$Year <- substring(LEV_Wind$Year,4,8)
+LEV_Wind$Year <- as.numeric(LEV_Wind$Year)
+
+CurrentAssetsRatio_Wind <- ListedFirm_Wind_raw %>%
+  select(stockcode, CurrentAssetsRatio2010:CurrentAssetsRatio2021) %>%
+  pivot_longer(CurrentAssetsRatio2010:CurrentAssetsRatio2021, names_to = "Year", values_to = "CurrentAssetsRatio")
+CurrentAssetsRatio_Wind$Year <- substring(CurrentAssetsRatio_Wind$Year,19,23)
+CurrentAssetsRatio_Wind$Year <- as.numeric(CurrentAssetsRatio_Wind$Year)
+
+CurrentLiabilityRatio_Wind <- ListedFirm_Wind_raw %>%
+  select(stockcode, CurrentLiabilityRatio2010:CurrentLiabilityRatio2021) %>%
+  pivot_longer(CurrentLiabilityRatio2010:CurrentLiabilityRatio2021, names_to = "Year", values_to = "CurrentLiabilityRatio")
+CurrentLiabilityRatio_Wind$Year <- substring(CurrentLiabilityRatio_Wind$Year,22,26)
+CurrentLiabilityRatio_Wind$Year <- as.numeric(CurrentLiabilityRatio_Wind$Year)
+
+CurrentRatio_Wind <- ListedFirm_Wind_raw %>%
+  select(stockcode, CurrentRatio2010:CurrentRatio2021) %>%
+  pivot_longer(CurrentRatio2010:CurrentRatio2021, names_to = "Year", values_to = "CurrentRatio")
+CurrentRatio_Wind$Year <- substring(CurrentRatio_Wind$Year,13,17)
+CurrentRatio_Wind$Year <- as.numeric(CurrentRatio_Wind$Year)
+
+Assets_Wind <- ListedFirm_Wind_raw %>%
+  select(stockcode, Assets2010:Assets2021) %>%
+  pivot_longer(Assets2010:Assets2021, names_to = "Year", values_to = "TotalAssets")
+Assets_Wind$Year <- substring(Assets_Wind$Year,7,11)
+Assets_Wind$Year <- as.numeric(Assets_Wind$Year)
+
+Liability_Wind <- ListedFirm_Wind_raw %>%
+  select(stockcode, Liability2010:Liability2021) %>%
+  pivot_longer(Liability2010:Liability2021, names_to = "Year", values_to = "TotalLiabilities")
+Liability_Wind$Year <- substring(Liability_Wind$Year,10,14)
+Liability_Wind$Year <- as.numeric(Liability_Wind$Year)
+
+Structure_processed <- full_join(LEV_Wind,CurrentAssetsRatio_Wind, by = c("stockcode","Year"), all=T)
+Structure_processed <- full_join(Structure_processed,CurrentLiabilityRatio_Wind, by = c("stockcode","Year"), all=T)
+Structure_processed <- full_join(Structure_processed,CurrentRatio_Wind, by = c("stockcode","Year"), all=T)
+Structure_processed <- full_join(Structure_processed,Assets_Wind, by = c("stockcode","Year"), all=T)
+Structure_processed <- full_join(Structure_processed,Liability_Wind, by = c("stockcode","Year"), all=T)
+Structure_processed$stockcode <- substring(Structure_processed$stockcode,1,6)
+
+rm(LEV_Wind)
+rm(CurrentAssetsRatio_Wind)
+rm(CurrentLiabilityRatio_Wind)
+rm(CurrentRatio_Wind)
+rm(Assets_Wind)
+rm(Liability_Wind)
+
+#Combine all datasets
+Wind_processed <- left_join(ESG_all,FinancialPerf_processed, by = c("stockcode","Year"), all=T)
+Wind_processed <- left_join(Wind_processed,Top10_processed, by = c("stockcode", "Year"), all=T)
+Wind_processed <- left_join(Wind_processed,Board_processed, by = c("stockcode", "Year"), all=T)
+Wind_processed <- left_join(Wind_processed,Structure_processed, by = c("stockcode","Year"), all=T)
+Wind <- right_join(FirmBasic,Wind_processed, by = c("stockcode"), all=T)
+
+```
+
+```{r create new variables, echo=FALSE, message = FALSE, warning= FALSE}
+Wind$ChairisGM <- as.numeric(Wind$Chairman == Wind$GM)
+Wind$Top1sq <- (Wind$Top1)^2
+Wind$Top123 <- Wind$Top1 + Wind$Top2 + Wind$Top3
+Wind$Top123sq <- (Wind$Top123)^2
+Wind$Top12345 <- Wind$Top123 + Wind$Top4 + Wind$Top5
+Wind$Top12345sq <- (Wind$Top12345)^2
+Wind$Top1.10 <- Wind$Top12345 + Wind$Top6 + Wind$Top7 + Wind$Top8 + Wind$Top9 + Wind$Top10
+Wind$Top25.Top1 <- (Wind$Top12345-Wind$Top1)/Wind$Top1
+Wind$Top25.Top1sq <- (Wind$Top25.Top1)^2
+Wind$Top210.Top1 <- (Wind$Top1.10-Wind$Top1)/Wind$Top1
+Wind$Top210.Top1sq <- (Wind$Top210.Top1)^2
+Wind$Size <- log(Wind$TotalAssets)
+Wind$IndepBoardRatio <- Wind$IndepBoardNumber/Wind$BoardNumber
+
+Wind.Stateowned <- Wind %>%
+  filter(CompanyType == "中央国有企业" | CompanyType == "地方国有企业") %>%
+  mutate(StateOwned = 1)
+Wind.NotStateowned <- Wind %>%
+  filter(CompanyType != "中央国有企业" | CompanyType != "地方国有企业") %>%
+  mutate(StateOwned = 0)
+Wind <- rbind(Wind.Stateowned, Wind.NotStateowned)
+
+rm(Wind.Stateowned)
+rm(Wind.NotStateowned)
+
+Wind$Industry1st <- substring(Wind$IndustryCode,1,1)
+
+Wind$Type[Wind$CompanyType == "地方国有企业"] <- "local_state_owned"
+Wind$Type[Wind$CompanyType == "中央国有企业"] <- "central_state_owned"
+Wind$Type[Wind$CompanyType == "公众企业"] <- "public"
+Wind$Type[Wind$CompanyType == "民营企业"] <- "private"
+Wind$Type[Wind$CompanyType == "外资企业"] <- "foreign"
+Wind$Type[Wind$CompanyType == "集体企业"] <- "collective"
+Wind$Type[Wind$CompanyType == "其他企业"] <- "other"
+```
+
+```{r summary, echo=FALSE, message = FALSE, warning= FALSE}
+Wind_ESG <- Wind %>%
+ filter(!is.na(ESG_bloomberg))%>%
+ select(stockcode, IPO_date, CompanyType, Province, City, IndustryName, IndustryCode, Year, ESG_bloomberg, E, S, G, ROA1, ROA2, ROE1, ROE2, ROIC, ROP, Top1, Top2, Top3, Top4, Top5, Top6, Top7, Top8, Top9, Top10, ChairisGM, BoardNumber, IndepBoardNumber, ManageSalary, LEV, CurrentRatio, Top1sq, Top123, Top123sq, Top12345, Top12345sq, Top1.10, Top25.Top1, Top25.Top1sq, Top210.Top1, Top210.Top1sq, Size, IndepBoardRatio, StateOwned, Industry1st, Type) 
+
+DataSample <- Wind_ESG %>%
+ select(Year, ESG_bloomberg, E, S, G, ROA1, ROE1, ROA2, ROE2, Top1, Top25.Top1, ChairisGM, LEV, CurrentRatio, Size, IndepBoardRatio, StateOwned) %>%
+  na.omit()
+
+Wind20102014 <- Wind %>%
+  filter(Year %in% c(2010:2014))
+
+Wind20152020 <- Wind %>%
+  filter(Year %in% c(2015:2020))
+```
+
+\newpage
+
+# Exploratory Analysis 
+
+We conducted an exploratory analysis of our data visually using a heatmap to show differences
+in ESG performance among the different types of listed firms across years (Figure 2) and summary statistics tables to provide an overview of basic characteristics of listed firms (Tables 2 and 3). The visualization showed that the average ESG score of listed firms was increasing over the past ten years. Moreover, state-owned firms and collective firms in China tend to constantly improve their ESG performance with higher scores, while private firms and foreign firms tend to be associated with decreasing and lower ESG scores during 2010-2020. It is worth mentioning that the average ESG score of foreign listed firms in China decreased significantly in 2015, which might be explained by the withdrawal of foreign capital and 2015 stock market selloff. Details on the variables are available in the excel file on the Github repository. 
+
+```{r summary statistics, echo = FALSE, message = FALSE, warning= FALSE}
+
+tab_02 <- data.frame(
+  Measure <- c("ESG_bloomberg", "Environmental", "Social", "Goverance", "ROA", "ROE", "Top1", "Top25to1", "ChairisGM", "Size", "LEV", "CurrentRatio", "IndepBoardRatio", "StateOwned"),
+  Mean <- c(mean(DataSample$ESG_bloomberg), mean(DataSample$E), mean(DataSample$S), mean(DataSample$G), mean(DataSample$ROA1), mean(DataSample$ROE2), mean(DataSample$Top1), mean(DataSample$Top25.Top1), mean(DataSample$ChairisGM), mean(DataSample$Size), mean(DataSample$LEV), mean(DataSample$CurrentRatio), mean(DataSample$IndepBoardRatio), mean(DataSample$StateOwned)),
+  SD <- c(sd(DataSample$ESG_bloomberg), sd(DataSample$E), sd(DataSample$S), sd(DataSample$G), sd(DataSample$ROA1), sd(DataSample$ROE2), sd(DataSample$Top1), sd(DataSample$Top25.Top1), sd(DataSample$ChairisGM), sd(DataSample$Size), sd(DataSample$LEV), sd(DataSample$CurrentRatio), sd(DataSample$IndepBoardRatio), sd(DataSample$StateOwned)),
+  Max <- c(max(DataSample$ESG_bloomberg), max(DataSample$E), max(DataSample$S), max(DataSample$G), max(DataSample$ROA1), max(DataSample$ROE2), max(DataSample$Top1), max(DataSample$Top25.Top1), max(DataSample$ChairisGM), max(DataSample$Size), max(DataSample$LEV), max(DataSample$CurrentRatio), max(DataSample$IndepBoardRatio), max(DataSample$StateOwned)),
+  Min <- c(min(DataSample$ESG_bloomberg), min(DataSample$E), min(DataSample$S), min(DataSample$G), min(DataSample$ROA1), min(DataSample$ROE2), min(DataSample$Top1), min(DataSample$Top25.Top1), min(DataSample$ChairisGM), min(DataSample$Size), min(DataSample$LEV), min(DataSample$CurrentRatio), min(DataSample$IndepBoardRatio), min(DataSample$StateOwned))
+)
+
+kable(tab_02, format='markdown', col.names = c("Measure", "*Mean*", "*SD*", "*Max*", "*Min*"), caption="Summary Statistics for Firm-Level Variables", digits=3)
+
+```
+
+
+```{r heatmap, echo=FALSE, message = FALSE, warning= FALSE, fig.show='hold', fig.cap= "Heat Map of ESG Rating of Different Types of Firms Across Years"}
+
+ggplot(Wind_ESG, aes(as.factor(Year), Type, fill= ESG_bloomberg)) +
+  geom_tile(color="black") +
+  scale_fill_gradient(low="white", high="red") +
+  xlab("Year") +
+  ylab("Company Type")
+```
+
+```{r summary tables, echo=FALSE, message = FALSE, warning= FALSE}
+Wind.summary <- Wind_ESG %>%
+    group_by(Type) %>%
+    summarize(
+        meanESG = mean(ESG_bloomberg),
+        minESG = min(ESG_bloomberg),
+        maxESG = max(ESG_bloomberg),
+        sdESG = sd(ESG_bloomberg))
+
+kable(Wind.summary, caption = "Bloomberg ESG Scores by Company Type", digits=3)
+```
+
+\newpage
+
+# Analysis
+
+## Question 1: Are ESG scores from different rating agencies consistent without significant divergences? 
+
+Figure 3 and Table 4 show the correlation between ESG ratings. It is clearly observed that all ESG ratings were positively correlated over the past ten years, while the correlation coefficients were less than 0.60, not as high as we expected.
+
+```{r ESG correlation, echo = FALSE, message = FALSE, warning= FALSE, fig.show='hold', fig.cap= "The Correlation Plot for Five ESG Ratings"}
+
+ESGAll_complete <- 
+  ESG_all %>%
+  mutate(Bloomberg = ESGscore_Bloomberg, SyntaoGreen = ESGscore_Syntao, SinoSecurities = ESGscore_Sino, CASVI = ESGscore_CASVI, FTSERussell = ESG_FTSE) %>%
+  select(Bloomberg, SyntaoGreen, SinoSecurities, CASVI, FTSERussell) %>%
+  na.omit()
+
+ESGAllCorr <- cor(ESGAll_complete)
+corrplot(ESGAllCorr, method = "ellipse")
+
+```
+
+```{r table3, echo=FALSE, message=FALSE, warnings=FALSE, results='asis'}
+require(pander)
+panderOptions('table.split.table', Inf)
+set.caption("The Correlation Table for ESG Ratings")
+tabl4 <- "
+ESG Index      | Bloomberg | SyntaoGreen  | SinoSecurities|  CASVI    |  FTSERussell
+Bloomberg      |    1.000  |  0.585       |  0.236        | 0.476     |  0.480
+SyntaoGreen    |    0.585  |  1.000       |  0.178        | 0.375     |  0.561
+SinoSecurities |    0.236  |  0.178       |  1.000        | 0.321     |  0.122
+CASVI          |    0.476  |  0.375       |  0.321        | 1.000     |  0.268
+FTSERussell    |    0.480  |  0.562       |  0.122        | 0.268     |  1.000    
+"
+df <- read.delim(textConnection(tabl4),header=FALSE,sep="|",strip.white=TRUE,stringsAsFactors=FALSE)
+names(df) <- unname(as.list(df[1,])) # put headers on
+df <- df[-1,] # remove first row
+row.names(df)<-NULL
+pander(df, style = 'rmarkdown')
+```
+
+Among these five ESG ratings, we should choose a reliable one for further analysis.
+First of all, although Sino-Securities Index ESG covers most of listed firms in China's stock market, including 4065 out of 4912 listed companies, it has the lowest correlation coefficients (less than 0.35) with other four indices. This means that its ESG rating system is quite different from others.  We exclude this one due to its lower reliability.
+Furthermore, China Alliance of Social Value Investment (CASVI) has a very small sample size, only including 296 listed companies after 2016, so we then exclude this one due to lack of representativeness.
+Lastly, SynTao Green Finance, FTSE Russell, and Bloomberg ESG indices are all highly positively correlated with darker blue in Figure 3, which means their scope, measurement and weights are consistent without many divergences. Since Bloomberg ESG includes 1122 listed firms during the period of 2010-2020 with fewer missing values and is accurately measured by numerical scores rather than rating levels, we choose Bloomberg ESG as a reliable index to measure ESG performance of listed firms in China for further analysis.
+
+## Question 2: How can these ownership structure and leadership factors (ownership concentration, blockholders' ownership, independent board ratio, chairman duality) affect ESG performance?
+
+Figure 4 provides an overview of the relationship between ESG performance of listed firms and four ownership structure and leadership factors (ownership concentration, blockholders' power, board independence, and chairman duality). Figure 2 also presents a correlation plot to show associations between important variables. However, simply measuring their relationships through correlation coefficients and fitted lines are limited. Instead, we should apply a multiple regression to further measure the effect of these four ownership structure and leadership factors on ESG performance.
+
+```{r plots, echo = FALSE, message = FALSE, warning= FALSE, fig.show='hold', fig.cap= "Four Ownership Structure and Leadership Factors and ESG Rating"}
+
+plot3 <- ggplot(Wind_ESG, aes(x = Top1, y = ESG_bloomberg)) +
+  geom_point(alpha=0.7, size =0.7) +
+  geom_smooth(method=loess) 
+
+plot4 <- ggplot(Wind_ESG, aes(x = Top25.Top1, y = ESG_bloomberg)) +
+  geom_point(alpha=0.7, size =0.7) +
+  geom_smooth(method=loess) +
+  ylim(5,60) +xlim(0,3)
+
+plot5 <- ggplot(Wind_ESG, aes(x = IndepBoardRatio, y = ESG_bloomberg)) +
+  geom_point(alpha=0.7, size =0.7) +
+  geom_smooth(method=loess) 
+
+Wind_ESG1 <- Wind_ESG %>% filter(!is.na(ChairisGM))
+
+plot6 <- ggplot(Wind_ESG1, aes(x = as.factor(ChairisGM), y = ESG_bloomberg)) +
+  geom_boxplot() +
+  xlab("ChairisGM")
+
+plot_grid(plot3, plot4, plot5, plot6,
+                     nrow = 2, align = 'vh', axis = "tblr",
+                     labels = c("Ownership Concentration", "Blockholders", "Board Independence", "Chairman Duality"), label_size = 12)
+
+```
+
+```{r correlation2, echo = FALSE, message = FALSE, warning= FALSE, fig.show='hold', fig.cap= "The Correlation Plot for Important Variables"}
+Wind_ESG$Top25to1 <- Wind_ESG$Top25.Top1 
+Correlation <- Wind_ESG %>%
+  select(ESG_bloomberg, Top1:Top5, Top25to1, Size, LEV, CurrentRatio, IndepBoardRatio, ChairisGM, StateOwned) %>%
+  na.omit()
+
+WindCorr <- cor(Correlation)
+corrplot(WindCorr, method = "ellipse")
+```
+
+The regression equation is listed below.
+\begin{equation*}
+\begin{split}
+ESG_{it} = Top1_{it} + (Top1_{it})^2 + Top25to1_{it} + IndepBoardRatio_{it} + ChairisGM_{it} \\+ Size_{it} + LEV_{it} + CurrentRatio_{it} + \delta_t+\delta_j+\delta_{s}+\varepsilon_{it}
+\end{split}
+\end{equation*}
+
+where `Top1` equals the shareholding ratio of the largest shareholder of a firm; `Top25to1` equals to the ratio of the sum of shares held by the $2^{nd}$, $3^{rd}$, $4^{th}$, and $5^{th}$ largest shareholders to that of the $1^{st}$ largest shareholder of a firm; `IndepBoardRatio` is the ratio of the number of independent board members to the number of total board members; `ChairisGM` equals 1 when chairman and general manager (GM) are the same person, and 0 otherwise; $\delta_t$, $\delta_j$, and $\delta_{s}$ represent year fixed effect, industry fixed effect, and company type fixed effect; $\varepsilon_{it}$ is the unobserved error term.
+
+Figure 5 shows the regression result.
+
+\begin{table}[!htbp] \centering \small
+  \caption{Fixed-Effect Model} 
+  \label{} 
+\begin{tabular}{@{\extracolsep{5pt}}lccc} 
+\\[-1.8ex]\hline 
+\hline \\[-1.8ex] 
+ & \multicolumn{3}{c}{\textit{Dependent variable:}} \\ 
+\cline{2-4} 
+\\[-1.8ex] & ESG2010-2020 & ESG2010-2014 & ESG2015-2020 \\ 
+\\[-1.8ex] & (1) & (2) & (3)\\ 
+\hline \\[-1.8ex] 
+ Top1 & 0.088$^{***}$ & 0.088$^{***}$ & 0.085$^{***}$ \\ 
+  & (0.016) & (0.022) & (0.022) \\ 
+  & & & \\ 
+ Top1sq & $-$0.001$^{***}$ & $-$0.001$^{***}$ & $-$0.001$^{***}$ \\ 
+  & (0.0002) & (0.0002) & (0.0002) \\ 
+  & & & \\ 
+ Top25to1 & 0.624$^{***}$ & 0.282 & 0.803$^{***}$ \\ 
+  & (0.136) & (0.204) & (0.183) \\ 
+  & & & \\ 
+ Size & 1.916$^{***}$ & 1.781$^{***}$ & 2.044$^{***}$ \\ 
+  & (0.049) & (0.072) & (0.067) \\ 
+  & & & \\ 
+ LEV & $-$0.027$^{***}$ & $-$0.034$^{***}$ & $-$0.022$^{***}$ \\ 
+  & (0.003) & (0.004) & (0.005) \\ 
+  & & & \\ 
+ CurrentRatio & $-$0.107$^{***}$ & $-$0.096$^{***}$ & $-$0.155$^{***}$ \\ 
+  & (0.017) & (0.018) & (0.034) \\ 
+  & & & \\ 
+ IndepBoardRatio & 2.494$^{***}$ & 4.356$^{***}$ & 0.637 \\ 
+  & (0.908) & (1.296) & (1.240) \\ 
+  & & & \\ 
+ ChairisGM & $-$0.714$^{***}$ & $-$0.846$^{***}$ & $-$0.465$^{***}$ \\ 
+  & (0.139) & (0.217) & (0.180) \\ 
+  & & & \\ 
+ ROA2 & $-$0.014$^{*}$ & $-$0.027$^{**}$ & $-$0.010 \\ 
+  & (0.008) & (0.012) & (0.010) \\ 
+  & & & \\ 
+ Constant & $-$28.437$^{***}$ & $-$25.763$^{***}$ & $-$27.595$^{***}$ \\ 
+  & (1.212) & (1.733) & (1.694) \\ 
+  & & & \\ 
+\hline \\[-1.8ex] 
+Observations & 13,745 & 5,337 & 8,408 \\ 
+R$^{2}$ & 0.280 & 0.255 & 0.258 \\ 
+Adjusted R$^{2}$ & 0.275 & 0.243 & 0.250 \\ 
+Residual Std. Error & 5.556 (df = 13649) & 5.012 (df = 5249) & 5.790 (df = 8317) \\ 
+F Statistic & 55.879$^{***}$ (df = 95; 13649) & 20.664$^{***}$ (df = 87; 5249) & 32.064$^{***}$ (df = 90; 8317) \\ 
+\hline 
+\hline \\[-1.8ex] 
+\textit{Note:}  & \multicolumn{3}{r}{$^{*}$p$<$0.1; $^{**}$p$<$0.05; $^{***}$p$<$0.01} \\ 
+\end{tabular} 
+\end{table} 
+
+```{r regression, echo=FALSE, eval=FALSE}
+
+lm1 <- lm(ESG_bloomberg ~ Top1 + Top1sq + Top25.Top1 + IndepBoardRatio + ChairisGM + Size + LEV + CurrentRatio + ROA2 + factor(Year) + factor(IndustryCode) + factor(Type), data=Wind_ESG)
+summary(lm1)
+
+lm2 <- lm(ESG_bloomberg ~ Top1 + Top1sq + Top25.Top1 + IndepBoardRatio + ChairisGM + Size + LEV + CurrentRatio + ROA2 + factor(Year) + factor(IndustryCode) + factor(Type), data=Wind20102014)
+summary(lm2)
+
+lm3 <- lm(ESG_bloomberg ~ Top1 + Top1sq + Top25.Top1 + IndepBoardRatio + ChairisGM + Size + LEV + CurrentRatio + ROA2 + factor(Year) + factor(IndustryCode) + factor(Type), data=Wind20152020)
+summary(lm3)
+
+stargazer(lm1, lm2, lm3, header = F)
+
+```
+
+
+\newpage
+
+# Summary and Conclusions
+
+The ESG performances of listed companies improved over past ten years, and state-owned firms and public firms tend to have higher ESG scores compared to private firms.
+The ESG scores from these five rating companies are positively correlated, but still have significant divergence. 
+By using Bloomberg ESG index for regression, we find that 1) ownership concentration is beneficial for improving ESG performance to some extent, but the marginal effect is decreasing; 2) the effects of outside blockholders and independent board members are also positive; 3) listed firm should try to achieve that chairman and general manager (GM) are not the same person.
+
+
+, which might be explained by the withdrawal of foreign capital and 2015 stock market selloff in China. Overall, although the average ESG score of listed firms in China was only 22.524, relatively lower compared to U.S. firms, these listed firms have been working hard on improving ESG performance over the past ten years.
+
+\newpage
+
+# References
+
+Al Amosh, H., & Khatib, S. F. A. (2021). Ownership structure and environmental, social and governance performance disclosure: The moderating role of the board independence. Journal of Business and Socio-Economic Development, ahead-of-print(ahead-of-print). https://doi.org/10.1108/JBSED-07-2021-0094
+
+Berg, F., Kölbel, J. F., & Rigobon, R. (2019). Aggregate Confusion: The Divergence of ESG Ratings (SSRN Scholarly Paper No. 3438533). Social Science Research Network. https://doi.org/10.2139/ssrn.3438533
+
+Bloomberg NEF. (2022). Energy Transition Investment Trends 2022. Retrieved on April 7th 2022, from https://assets.bbhub.io/professional/sites/24/Energy-Transition-Investment-Trends-Exec-Summary-2022.pdf
+
+Eng, L.L. and Mak, Y.T. (2003), “Corporate governance and voluntary disclosure”, Journal of Accounting and Public Policy, Vol. 22 No. 4, pp. 325-345.
+
+Friedman, M. (1970). A theoretical framework for monetary analysis. journal of Political Economy, 78(2), 193-238.
+
+Gillan, S. L., Koch, A., & Starks, L. T. (2021). Firms and social responsibility: A review of ESG and CSR research in corporate finance. Journal of Corporate Finance, 66, 101889. https://doi.org/10.1016/j.jcorpfin.2021.101889
+
+
+
