@@ -8,7 +8,7 @@ geometry: margin=2.54cm
 title: "What Listed Firms with Great ESG Performance Look Like"
 subtitle: "https://github.com/Ruanancy/872EDA-Final-Project.git"
 author: "Min Ruan, Suad Muradov"
-time: "Spring 2022"
+date: "Spring 2022"
 fontsize: 12pt
 mainfont: Times New Roman
 editor_options: 
@@ -75,7 +75,7 @@ colnames(ListedFirm_Wind_raw)
 
 # Rationale and Research Questions
 
-ESG is the acronym for Environmental, Social, and (Corporate) Governance. Figure 1 shows ESG criteria and ESG rating system. Back to 1970, Milton Friedman (1970) introduced the Shareholder Value Theory stating that business strategy should not just be about profit maximization, but care about long–term, sustainable growth. In 1990, the first ESG index, the Domini 400 Social Index, was created which we now know today as the MSCI KLD 400 Social Index. In 2006, the United Nations Principles for Responsible Investment (UN PRI) were launched and incorporated ESG concept into sustainability investment practice, focused on asset owners, investment managers, and service providers. They have been increasingly popular and have attracted over 3,000 signatories with more than 100 trillion dollars in assets under management by 2021. Therefore, ESG era is coming.
+ESG is the acronym for Environmental, Social, and (Corporate) Governance. Figure 1 shows ESG criteria and ESG rating system. Back to 1984, Edward Freeman (1984) introduced the stakeholder theory emphasizing that business strategy should not only focus on profit maximization but sustainable long-term growth and multiple stakeholders. In 1990, the first ESG index, the Domini 400 Social Index, was created which we now know today as the MSCI KLD 400 Social Index. In 2006, the United Nations Principles for Responsible Investment (UN PRI) were launched and incorporated ESG concept into sustainability investment practice, focused on asset owners, investment managers, and service providers. They have been increasingly popular and have attracted over 3,000 signatories with more than 100 trillion dollars in assets under management by 2021. Therefore, ESG era is coming.
 
 ```{r ESG, warning = FALSE, echo=FALSE, fig.align='center', out.width=c('60%', '35%'), fig.show='hold', fig.cap= "The Concept of ESG and ESG Rating System"}
 plots=c("./ESG.jpeg","./ESG Rating System.jpeg")
@@ -88,7 +88,7 @@ This paper investigates the ESG performance of publicly listed firms in China du
 
 We choose the following questions to guide our work:
 
-* Are ESG scores from different rating agents consistent, or at least positively correlated?
+* Are ESG scores from different rating agencies consistent without significant divergences?
 * How can these ownership structure factors (ownership concentration, blockholders' ownership, independent board ratio, chairman duality) affect ESG performance?
 
 
@@ -681,7 +681,7 @@ ESG_{it} = Top1_{it} + (Top1_{it})^2 + Top25to1_{it} + IndepBoardRatio_{it} + Ch
 
 where `Top1` equals the shareholding ratio of the largest shareholder of a firm; `Top25to1` equals to the ratio of the sum of shares held by the $2^{nd}$, $3^{rd}$, $4^{th}$, and $5^{th}$ largest shareholders to that of the $1^{st}$ largest shareholder of a firm; `IndepBoardRatio` is the ratio of the number of independent board members to the number of total board members; `ChairisGM` equals 1 when chairman and general manager (GM) are the same person, and 0 otherwise; $\delta_t$, $\delta_j$, and $\delta_{s}$ represent year fixed effect, industry fixed effect, and company type fixed effect; $\varepsilon_{it}$ is the unobserved error term.
 
-Figure 5 shows the regression result. Column (1) used all data during 2010-2020; Column (2) applied data during 2010-2014; and Column (3) applied data during 2015-2020. By using Bloomberg ESG index for regression, we find that 1) Ownership concentration is beneficial for improving ESG performance to some extent, but the marginal effect is decreasing; 2) The effects of outside blockholders and independent board members are also positive; 3) Listed firm should try to achieve that chairman and general manager (GM) are not the same person.
+Table 5 shows the regression result. Column (1) used all data during 2010-2020; Column (2) applied data during 2010-2014; and Column (3) applied data during 2015-2020. By using Bloomberg ESG index for regression, we find that 1) The higher ownership concentration is, the higher ESG performance will be, but the marginal positive effect of ownership concentration is decreasing; 2) The effects of outside blockholders and independent board members are also significantly positive at a 5\% level; 3) Chairman duality is not a good thing and listed firm which chairman and general manager (GM) are the same person tend to have lower ESG scores.
 
 \begin{table}[!htbp] \centering \footnotesize
   \caption{Fixed-Effect Model} 
@@ -756,19 +756,20 @@ stargazer(lm1, lm2, lm3, header = F)
 # Summary and Conclusions
 
 ## Increasing Trend
-Overall, although the average ESG score of listed firms in China was only 22.524, relatively lower compared to U.S. firms, these listed firms have been working hard on improving ESG performance over the past ten years. Specifically, state-owned firms and public firms tend to have higher ESG scores compared to private firms. The average ESG score of foreign listed firms in China decreased significantly in 2015, which might be explained by the withdrawal of foreign capital and 2015 stock market selloff.
+
+Overall, although the average ESG score of listed firms in China was only 22.524, relatively lower compared to U.S. firms, these listed firms have been working hard on improving ESG performance over the past ten years. Specifically, state-owned firms and collective firms in China tend to constantly improve their ESG performance with higher scores, while private firms and foreign firms tend to be associated with decreasing and lower ESG scores during 2010-2020. Interestingly, the average ESG score of foreign listed firms in China decreased significantly in 2015, which might be explained by the withdrawal of foreign capital and 2015 stock market selloff.
 
 ## ESG Divergence and Selection
 
-The ESG scores from these five rating companies were positively correlated, but still had significant divergence. By comparison, we excluded four of them and chose Bloomberg ESG index for further analysis. 
+Globally, different ESG rating agencies have common differences in the ESG ratings of a company. The divergence can be decomposed into contributions of scope, measurement, and weights (Berg et al., 2019). The ESG ratings from five main rating companies in China were all positively correlated, but still had significant divergence. Sino-Securities Index ESG covers 4065 listed companies, but has the lowest correlation coefficients with other four indices. China Alliance of Social Value Investment (CASVI) only includes 296 listed companies after 2016, so the sample size is not large enough to be representative. SynTao Green Finance, FTSE Russell, and Bloomberg ESG indices are all highly positively correlated, but Bloomberg ESG has fewest missing values and is directly measured by numerical scores rather than rating levels. Therefore, we choose Bloomberg ESG as a reliable index to measure ESG performance of listed firms in China for our analysis.
 
 ## Ownership Structure and Leadership Factors
 
-The main finding is that 1) ownership concentration is beneficial for improving ESG performance to some extent, but the marginal effect is decreasing; 2) the effects of outside blockholders and independent board members are also positive; 3) listed firm should try to achieve that chairman and general manager (GM) are not the same person.
+Based on our analysis, ownership concentration is beneficial for improving ESG performance to some extent, but the marginal effect is decreasing. This may indicate that the largest shareholder with more shares help stabilize the corporate governance and apply sustainable and consistent strategy, while one person with too much power is more likely to be autarchic, leading a corporate to a wrong direction more easily. The effects of blockholders and independent board members on ESG performance are also significantly positive. This may show that democracy and independence are essential to make rational decisions and avoid corruption. Lastly, chairman duality is not a good choice and listed firm should try to make sure that chairman and general manager are not the same person.
 
 ## Future Recommendations
 
-
+Even in Europe today, only 30% of the largest publicly traded corporations fully disclose their business model's environmental and climate-related implications (CDSB, 2020). It goes without saying that the topic of ESG is relatively new in the world and the reports like ours concentrating on the identification of factors for construction of ESG policies and strategies would not be as reliable as it will be in 15-20 years, considering the changing politics. That effectively means the research area and data on ESG will improve throughout time and indicators might undergo refreshments and modifications. Additionally it is important to consider the cultural factors that could affect ESG performance of the companies on top of the factors such as corruption nepotism size of the company and others that we have explored to be able to capture the model in a broader way, account for more variabilities and, thus, achieve greater level of $R^2$. Another issue could be addressed such as the political stability in the country which is actually one of the central tenets of creditworthiness in the business world. As we know it most of the credit lenders and investors are today moving to hunt those companies with higher ESG performance levels and this is one of the greatest priorities for their companies to achieve greater levels of ESG score for attracting more financing opportunities. However, ESG levels are not the most important factors in the are influencing investor decisions and external factors like the value of a local currency could be explored in deeper perspective in order to shed light on the mutual interplay between ESG and creditworthiness to assist those companies as well as the governments in understanding how to regulate their balance of payments to bring about net positive ESG performance levels in the local companies.
 
 \newpage
 
@@ -780,9 +781,11 @@ Berg, F., Kölbel, J. F., & Rigobon, R. (2019). Aggregate Confusion: The Diverge
 
 Bloomberg NEF. (2022). Energy Transition Investment Trends 2022. Retrieved on April 7th 2022, from https://assets.bbhub.io/professional/sites/24/Energy-Transition-Investment-Trends-Exec-Summary-2022.pdf
 
+CDSB (2020). Falling short? Climate Disclosure Standards Board. Retrieved April 20, 2022, from https://www.cdsb.net/falling-short
+
 Eng, L.L. and Mak, Y.T. (2003), “Corporate governance and voluntary disclosure”, Journal of Accounting and Public Policy, Vol. 22 No. 4, pp. 325-345.
 
-Friedman, M. (1970). A theoretical framework for monetary analysis. journal of Political Economy, 78(2), 193-238.
+Freeman, R. E. (1984). Strategic management: A stakeholder theory. Journal of Management Studies, 39(1), 1-21.
 
 Gillan, S. L., Koch, A., & Starks, L. T. (2021). Firms and social responsibility: A review of ESG and CSR research in corporate finance. Journal of Corporate Finance, 66, 101889. https://doi.org/10.1016/j.jcorpfin.2021.101889
 
