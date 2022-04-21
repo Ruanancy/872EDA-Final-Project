@@ -9,7 +9,7 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Data Wranging
+## Data Wrangling
 
 I first obtained a dataset about overall ESG scores and scores of three separate dimensions (environmental, social and governance) of 1122 Chinese publicly listed firms during 2010-2020 from Bloomberg. Then, after data wranging, I obtained a tidy dataset named `ESG_bloomberg_processed`.
 
