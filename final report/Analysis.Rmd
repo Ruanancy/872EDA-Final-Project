@@ -1,0 +1,125 @@
+---
+title: "Analysis"
+output: html_document
+---
+## Analysis Codes
+
+```{r summary statistics, echo = FALSE, message = FALSE, warning= FALSE}
+
+tab_02 <- data.frame(
+  Measure <- c("ESG_bloomberg", "Environmental", "Social", "Goverance", "ROA", "ROE", "Top1", "Top25to1", "ChairisGM", "Size", "LEV", "CurrentRatio", "IndepBoardRatio", "StateOwned"),
+  Mean <- c(mean(DataSample$ESG_bloomberg), mean(DataSample$E), mean(DataSample$S), mean(DataSample$G), mean(DataSample$ROA1), mean(DataSample$ROE2), mean(DataSample$Top1), mean(DataSample$Top25.Top1), mean(DataSample$ChairisGM), mean(DataSample$Size), mean(DataSample$LEV), mean(DataSample$CurrentRatio), mean(DataSample$IndepBoardRatio), mean(DataSample$StateOwned)),
+  SD <- c(sd(DataSample$ESG_bloomberg), sd(DataSample$E), sd(DataSample$S), sd(DataSample$G), sd(DataSample$ROA1), sd(DataSample$ROE2), sd(DataSample$Top1), sd(DataSample$Top25.Top1), sd(DataSample$ChairisGM), sd(DataSample$Size), sd(DataSample$LEV), sd(DataSample$CurrentRatio), sd(DataSample$IndepBoardRatio), sd(DataSample$StateOwned)),
+  Max <- c(max(DataSample$ESG_bloomberg), max(DataSample$E), max(DataSample$S), max(DataSample$G), max(DataSample$ROA1), max(DataSample$ROE2), max(DataSample$Top1), max(DataSample$Top25.Top1), max(DataSample$ChairisGM), max(DataSample$Size), max(DataSample$LEV), max(DataSample$CurrentRatio), max(DataSample$IndepBoardRatio), max(DataSample$StateOwned)),
+  Min <- c(min(DataSample$ESG_bloomberg), min(DataSample$E), min(DataSample$S), min(DataSample$G), min(DataSample$ROA1), min(DataSample$ROE2), min(DataSample$Top1), min(DataSample$Top25.Top1), min(DataSample$ChairisGM), min(DataSample$Size), min(DataSample$LEV), min(DataSample$CurrentRatio), min(DataSample$IndepBoardRatio), min(DataSample$StateOwned))
+)
+
+kable(tab_02, format='markdown', col.names = c("Measure", "*Mean*", "*SD*", "*Max*", "*Min*"), caption="Summary Statistics for Firm-Level Variables", digits=3)
+
+```
+
+```{r heatmap, echo=FALSE, message = FALSE, warning= FALSE, fig.show='hold', fig.cap= "Heat Map of ESG Rating of Different Types of Firms Across Years"}
+
+ggplot(Wind_ESG, aes(as.factor(Year), Type, fill= ESG_bloomberg)) +
+  geom_tile(color="black") +
+  scale_fill_gradient(low="white", high="red") +
+  xlab("Year") +
+  ylab("Company Type")
+```
+
+```{r summary tables, echo=FALSE, message = FALSE, warning= FALSE}
+Wind.summary <- Wind_ESG %>%
+    group_by(Type) %>%
+    summarize(
+        meanESG = mean(ESG_bloomberg),
+        minESG = min(ESG_bloomberg),
+        maxESG = max(ESG_bloomberg),
+        sdESG = sd(ESG_bloomberg))
+
+kable(Wind.summary, caption = "Bloomberg ESG Scores by Company Type", digits=3)
+```
+
+```{r ESG correlation, echo = FALSE, message = FALSE, warning= FALSE, fig.show='hold', fig.cap= "The Correlation Plot for Five ESG Ratings"}
+
+ESGAll_complete <- 
+  ESG_all %>%
+  mutate(Bloomberg = ESGscore_Bloomberg, SyntaoGreen = ESGscore_Syntao, SinoSecurities = ESGscore_Sino, CASVI = ESGscore_CASVI, FTSERussell = ESG_FTSE) %>%
+  select(Bloomberg, SyntaoGreen, SinoSecurities, CASVI, FTSERussell) %>%
+  na.omit()
+
+ESGAllCorr <- cor(ESGAll_complete)
+corrplot(ESGAllCorr, method = "ellipse")
+
+```
+
+```{r table3, echo=FALSE, message=FALSE, warnings=FALSE, results='asis'}
+require(pander)
+panderOptions('table.split.table', Inf)
+set.caption("The Correlation Table for ESG Ratings")
+tabl4 <- "
+ESG Index      | Bloomberg | SyntaoGreen  | SinoSecurities|  CASVI    |  FTSERussell
+Bloomberg      |    1.000  |  0.585       |  0.236        | 0.476     |  0.480
+SyntaoGreen    |    0.585  |  1.000       |  0.178        | 0.375     |  0.561
+SinoSecurities |    0.236  |  0.178       |  1.000        | 0.321     |  0.122
+CASVI          |    0.476  |  0.375       |  0.321        | 1.000     |  0.268
+FTSERussell    |    0.480  |  0.562       |  0.122        | 0.268     |  1.000    
+"
+df <- read.delim(textConnection(tabl4),header=FALSE,sep="|",strip.white=TRUE,stringsAsFactors=FALSE)
+names(df) <- unname(as.list(df[1,])) # put headers on
+df <- df[-1,] # remove first row
+row.names(df)<-NULL
+pander(df, style = 'rmarkdown')
+```
+
+```{r plots, echo = FALSE, message = FALSE, warning= FALSE, fig.show='hold', fig.cap= "Four Ownership Structure and Leadership Factors and ESG Rating"}
+
+plot3 <- ggplot(Wind_ESG, aes(x = Top1, y = ESG_bloomberg)) +
+  geom_point(alpha=0.7, size =0.7) +
+  geom_smooth(method=loess) 
+
+plot4 <- ggplot(Wind_ESG, aes(x = Top25.Top1, y = ESG_bloomberg)) +
+  geom_point(alpha=0.7, size =0.7) +
+  geom_smooth(method=loess) +
+  ylim(5,60) +xlim(0,3)
+
+plot5 <- ggplot(Wind_ESG, aes(x = IndepBoardRatio, y = ESG_bloomberg)) +
+  geom_point(alpha=0.7, size =0.7) +
+  geom_smooth(method=loess) 
+
+Wind_ESG1 <- Wind_ESG %>% filter(!is.na(ChairisGM))
+
+plot6 <- ggplot(Wind_ESG1, aes(x = as.factor(ChairisGM), y = ESG_bloomberg)) +
+  geom_boxplot() +
+  xlab("ChairisGM")
+
+plot_grid(plot3, plot4, plot5, plot6,
+                     nrow = 2, align = 'vh', axis = "tblr",
+                     labels = c("Ownership Concentration", "Blockholders", "Board Independence", "Chairman Duality"), label_size = 12)
+
+```
+
+```{r correlation2, echo = FALSE, message = FALSE, warning= FALSE, fig.show='hold', fig.cap= "The Correlation Plot for Important Variables"}
+Wind_ESG$Top25to1 <- Wind_ESG$Top25.Top1 
+Correlation <- Wind_ESG %>%
+  select(ESG_bloomberg, Top1:Top5, Top25to1, Size, LEV, CurrentRatio, IndepBoardRatio, ChairisGM, StateOwned) %>%
+  na.omit()
+
+WindCorr <- cor(Correlation)
+corrplot(WindCorr, method = "ellipse")
+```
+
+```{r regression, echo=FALSE, eval=FALSE}
+
+lm1 <- lm(ESG_bloomberg ~ Top1 + Top1sq + Top25.Top1 + IndepBoardRatio + ChairisGM + Size + LEV + CurrentRatio + ROA2 + factor(Year) + factor(IndustryCode) + factor(Type), data=Wind_ESG)
+summary(lm1)
+
+lm2 <- lm(ESG_bloomberg ~ Top1 + Top1sq + Top25.Top1 + IndepBoardRatio + ChairisGM + Size + LEV + CurrentRatio + ROA2 + factor(Year) + factor(IndustryCode) + factor(Type), data=Wind20102014)
+summary(lm2)
+
+lm3 <- lm(ESG_bloomberg ~ Top1 + Top1sq + Top25.Top1 + IndepBoardRatio + ChairisGM + Size + LEV + CurrentRatio + ROA2 + factor(Year) + factor(IndustryCode) + factor(Type), data=Wind20152020)
+summary(lm3)
+
+stargazer(lm1, lm2, lm3, header = F)
+
+```
+
